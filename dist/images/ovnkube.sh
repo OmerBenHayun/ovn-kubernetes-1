@@ -220,6 +220,7 @@ ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
 ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
+ovsdb_etcd_log_to_tcpdump=${OVSDB_ETCD_LOG_TO_TCPDUMP:-"true"}
 
 # Determine the ovn rundir.
 if [[ -f /usr/bin/ovn-appctl ]]; then
@@ -1212,6 +1213,10 @@ ovs-metrics() {
 }
 
 etcd () {
+  if [[ ${ovsdb_etcd_log_to_tcpdump} == "true" ]]; then
+	echo "================= start logging with tcpdump ============================ "
+	tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
+  fi
   echo "================= start etcd server ============================ "
   /usr/local/bin/etcd --data-dir /etc/openvswitch/ --listen-peer-urls http://localhost:2480 \
   --listen-client-urls http://localhost:2479 --advertise-client-urls http://localhost:2479 \
