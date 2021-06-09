@@ -42,6 +42,7 @@ usage() {
     echo "                 [-dbl|--dbchecker-loglevel <num>] [-ndl|--ovn-loglevel-northd <loglevel>]"
     echo "                 [-nbl|--ovn-loglevel-nb <loglevel>] [-sbl|--ovn-loglevel-sb <loglevel>]"
     echo "                 [-cl |--ovn-loglevel-controller <loglevel>] [-dl|--ovn-loglevel-nbctld <loglevel>] |"
+    echo "                 [-td |--ovndb-etcd-tcpdump]"
     echo "                 [-h]]"
     echo ""
     echo "-cf  | --config-file               Name of the KIND J2 configuration file."
@@ -77,6 +78,7 @@ usage() {
     echo "-sbl | --ovn-loglevel-sb           Log config for southboudn DB DEFAULT: '-vconsole:info -vfile:info'."
     echo "-cl  | --ovn-loglevel-controller   Log config for ovn-controller DEFAULT: '-vconsole:info'."
     echo "-dl  | --ovn-loglevel-nbctld       Log config for nbctl daemon DEFAULT: '-vconsole:info'."
+    echo "-td  | --ovndb-etcd-tcpdump        Log tcpdump DEFAULT: 'true'"
     echo "--delete                      	   Delete current cluster"
     echo ""
 }
@@ -185,6 +187,9 @@ parse_args() {
             -dl  | --ovn-loglevel-nbctld )      shift
                                                 OVN_LOG_LEVEL_NBCTLD=$1
                                                 ;;
+            -td  | --ovndb-etcd-tcpdump )       shift
+                                                OVN_LOG_TO_TCPDUMP=$1
+                                                ;;
             -hns | --host-network-namespace )   OVN_HOST_NETWORK_NAMESPACE=$1
                                                 ;;
             --delete )                          delete
@@ -230,6 +235,7 @@ print_params() {
      echo "OVN_LOG_LEVEL_SB = $OVN_LOG_LEVEL_SB"
      echo "OVN_LOG_LEVEL_CONTROLLER = $OVN_LOG_LEVEL_CONTROLLER"
      echo "OVN_LOG_LEVEL_NBCTLD = $OVN_LOG_LEVEL_NBCTLD"
+     echo "OVN_LOG_TO_TCPDUMP = $OVN_LOG_TO_TCPDUMP"
      echo "OVN_HOST_NETWORK_NAMESPACE = $OVN_HOST_NETWORK_NAMESPACE"
      echo ""
 }
@@ -268,6 +274,7 @@ set_default_params() {
   OVN_LOG_LEVEL_SB=${OVN_LOG_LEVEL_SB:-"-vconsole:info -vfile:info"}
   OVN_LOG_LEVEL_CONTROLLER=${OVN_LOG_LEVEL_CONTROLLER:-"-vconsole:info"}
   OVN_LOG_LEVEL_NBCTLD=${OVN_LOG_LEVEL_NBCTLD:-"-vconsole:info"}
+  OVN_LOG_TO_TCPDUMP=${OVN_LOG_TO_TCPDUMP:-false}
 
   # Input not currently validated. Modify outside script at your own risk.
   # These are the same values defaulted to in KIND code (kind/default.go).
@@ -498,6 +505,7 @@ create_ovn_kube_manifests() {
     --ovn-loglevel-sb="${OVN_LOG_LEVEL_SB}" \
     --ovn-loglevel-controller="${OVN_LOG_LEVEL_CONTROLLER}" \
     --ovn-loglevel-nbctld="${OVN_LOG_LEVEL_NBCTLD}" \
+    --ovndb-etcd-tcpdump="${OVN_LOG_TO_TCPDUMP}" \
     --egress-ip-enable=true \
     --egress-firewall-enable=true \
     --v4-join-subnet="${JOIN_SUBNET_IPV4}" \

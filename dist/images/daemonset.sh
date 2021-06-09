@@ -31,6 +31,7 @@ OVN_LOGLEVEL_NB=""
 OVN_LOGLEVEL_SB=""
 OVN_LOGLEVEL_CONTROLLER=""
 OVN_LOGLEVEL_NBCTLD=""
+OVNDB_ETCD_TCPDUMP=""
 OVNKUBE_LOGFILE_MAXSIZE=""
 OVNKUBE_LOGFILE_MAXBACKUPS=""
 OVNKUBE_LOGFILE_MAXAGE=""
@@ -114,6 +115,9 @@ while [ "$1" != "" ]; do
     ;;
   --ovn-loglevel-nbctld)
     OVN_LOGLEVEL_NBCTLD=$VALUE
+    ;;
+  --ovndb-etcd-tcpdump)
+    OVNDB_ETCD_TCPDUMP=$VALUE
     ;;
   --ovnkube-logfile-maxsize)
     OVNKUBE_LOGFILE_MAXSIZE=$VALUE
@@ -240,6 +244,8 @@ ovnkube_logfile_maxsize=${OVNKUBE_LOGFILE_MAXSIZE:-"100"}
 echo "ovnkube_logfile_maxsize: ${ovnkube_logfile_maxsize}"
 ovnkube_logfile_maxbackups=${OVNKUBE_LOGFILE_MAXBACKUPS:-"5"}
 echo "ovnkube_logfile_maxbackups: ${ovnkube_logfile_maxbackups}"
+ovndb_etcd_tcpdump=${OVNDB_ETCD_TCPDUMP}
+echo "ovndb_etcd_tcpdump: ${ovndb_etcd_tcpdump}"
 ovnkube_logfile_maxage=${OVNKUBE_LOGFILE_MAXAGE:-"5"}
 echo "ovnkube_logfile_maxage: ${ovnkube_logfile_maxage}"
 ovn_acl_logging_rate_limit=${OVN_ACL_LOGGING_RATE_LIMIT:-"20"}
@@ -373,6 +379,7 @@ ovn_image=${image} \
   ovn_ssl_en=${ovn_ssl_en} \
   ovn_nb_port=${ovn_nb_port} \
   ovn_sb_port=${ovn_sb_port} \
+  ovndb_etcd_tcpdump=${ovndb_etcd_tcpdump} \
   j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
 
 ovn_image=${image} \
