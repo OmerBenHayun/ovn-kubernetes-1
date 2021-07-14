@@ -213,8 +213,11 @@ ovn_encap_ip=${OVN_ENCAP_IP:-}
 
 # OVSDB-etcd variables
 ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:2479"}
-ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"5120"}
-ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"5120"}                        # etcd default is 128
+ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}       # 150 MByte
+ovsdb_etcd_warning_apply_duration=${OVSDB_ETCD_WARNING_APPLY_DURATION:-"1s"}    # etcd default is 100ms
+ovsdb_etcd_election_timeout=${OVSDB_ETCD_ELECTION_TIMEOUT:-"1000"}              # etcd default
+ovsdb_etcd_quota_backend_bytes=${OVSDB_ETCD_QUOTA_BACKEND_BYTES:-"8589934592"}  # 8 GByte
 
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
@@ -1220,9 +1223,16 @@ etcd () {
 	tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
-  /usr/local/bin/etcd --data-dir /etc/openvswitch/ --listen-peer-urls http://localhost:2480 \
-  --listen-client-urls http://localhost:2479 --advertise-client-urls http://localhost:2479 \
-  --max-txn-ops ${ovsdb_etcd_max_txn_ops} --max-request-bytes ${ovsdb_etcd_max_request_bytes}
+  /usr/local/bin/etcd --data-dir /etc/openvswitch/ \
+    --listen-peer-urls http://localhost:2480 \
+    --listen-client-urls http://localhost:2479 \
+    --advertise-client-urls http://localhost:2479 \
+    --max-txn-ops ${ovsdb_etcd_max_txn_ops} \
+    --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
+    --experimental-txn-mode-write-with-shared-buffer=true \
+    --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
+    --election-timeout=${ovsdb_etcd_election_timeout} \
+    --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes}
 }
 
 etcd_ready() {
