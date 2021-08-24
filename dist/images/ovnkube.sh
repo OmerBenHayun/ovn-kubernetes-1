@@ -213,12 +213,11 @@ ovn_encap_ip=${OVN_ENCAP_IP:-}
 
 # OVSDB-etcd variables
 ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:2479"}
-ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"5120"}                        # etcd default is 128
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"157286400"}                   # etcd default is 128
 ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}       # 150 MByte
 ovsdb_etcd_warning_apply_duration=${OVSDB_ETCD_WARNING_APPLY_DURATION:-"1s"}    # etcd default is 100ms
 ovsdb_etcd_election_timeout=${OVSDB_ETCD_ELECTION_TIMEOUT:-"1000"}              # etcd default
 ovsdb_etcd_quota_backend_bytes=${OVSDB_ETCD_QUOTA_BACKEND_BYTES:-"8589934592"}  # 8 GByte
-
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
@@ -1223,16 +1222,15 @@ etcd () {
 	tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
-  /usr/local/bin/etcd --data-dir /etc/openvswitch/ \
-    --listen-peer-urls http://localhost:2480 \
-    --listen-client-urls http://localhost:2479 \
-    --advertise-client-urls http://localhost:2479 \
-    --max-txn-ops ${ovsdb_etcd_max_txn_ops} \
-    --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
-    --experimental-txn-mode-write-with-shared-buffer=true \
-    --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
-    --election-timeout=${ovsdb_etcd_election_timeout} \
-    --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes}
+  /usr/local/bin/etcd --data-dir /etc/openvswitch/ --listen-peer-urls http://localhost:2480 \
+  --listen-client-urls http://localhost:2479 --advertise-client-urls http://localhost:2479 \
+  --max-txn-ops ${ovsdb_etcd_max_txn_ops} --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
+  --experimental-txn-mode-write-with-shared-buffer=true \
+  --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
+  --election-timeout=${ovsdb_etcd_election_timeout} \
+  --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes} \
+  --grpc-keepalive-timeout=60s --auto-compaction-retention=5m \
+  --log-level=error
 }
 
 etcd_ready() {
@@ -1242,6 +1240,7 @@ etcd_ready() {
 nb-ovsdb-etcd () {
   check_ovn_daemonset_version "3"
   pid_file=${OVN_RUNDIR}/ovnnb_etcd.pid
+  nb_cpuprofile_file=${OVN_RUNDIR}/nb_cpuprofile.prof
   rm -f ${pid_file}
 
 
@@ -1251,7 +1250,7 @@ nb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/nb-ovsdb-etcd.log -v=${ovsdb_etcd_nb_log_level} -tcp-address=:${ovn_nb_port} \
   -unix-address=${ovsdb_etcd_nb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=nb -schema-file=ovn-nb.ovsschema -pid-file=${pid_file} \
-  -load-server-data=false &
+  -load-server-data=false -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
@@ -1263,6 +1262,7 @@ nb-ovsdb-etcd () {
 sb-ovsdb-etcd () {
   check_ovn_daemonset_version "3"
   pid_file=${OVN_RUNDIR}/ovnsb_etcd.pid
+  sb_cpuprofile_file=${OVN_RUNDIR}/sb_cpuprofile.prof
   rm -f ${pid_file}
 
   echo "=============== run-sb-ovsdb-etcd (wait for etcd_ready)"
@@ -1271,7 +1271,7 @@ sb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/sb-ovsdb-etcd.log -v=${ovsdb_etcd_sb_log_level} -tcp-address=:${ovn_sb_port} \
   -unix-address=${ovsdb_etcd_sb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=sb -schema-file=ovn-sb.ovsschema -pid-file=${pid_file} \
-  -load-server-data=false &
+  -load-server-data=false -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
