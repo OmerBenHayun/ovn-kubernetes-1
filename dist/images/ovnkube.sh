@@ -1250,7 +1250,7 @@ nb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/nb-ovsdb-etcd.log -v=${ovsdb_etcd_nb_log_level} -tcp-address=:${ovn_nb_port} \
   -unix-address=${ovsdb_etcd_nb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=nb -schema-file=ovn-nb.ovsschema -pid-file=${pid_file} \
-  -load-server-data=false -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
@@ -1271,7 +1271,7 @@ sb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/sb-ovsdb-etcd.log -v=${ovsdb_etcd_sb_log_level} -tcp-address=:${ovn_sb_port} \
   -unix-address=${ovsdb_etcd_sb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=sb -schema-file=ovn-sb.ovsschema -pid-file=${pid_file} \
-  -load-server-data=false -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
