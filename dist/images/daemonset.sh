@@ -229,6 +229,9 @@ echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_peer_port}"
 ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:-"2479"}
 echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_client_port}"
 
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS}
+echo "ovsdb_etcd_max_txn_ops: ${ovsdb_etcd_max_txn_ops}"
+
 image_pull_policy=${OVN_IMAGE_PULL_POLICY:-"IfNotPresent"}
 echo "imagePullPolicy: ${image_pull_policy}"
 
@@ -238,7 +241,7 @@ echo "ovn_gateway_mode: ${ovn_gateway_mode}"
 ovn_gateway_opts=${OVN_GATEWAY_OPTS}
 echo "ovn_gateway_opts: ${ovn_gateway_opts}"
 
-ovn_db_replicas=${OVN_DB_REPLICAS:-3}
+vn_db_replicas=${OVN_DB_REPLICAS:-3}
 echo "ovn_db_replicas: ${ovn_db_replicas}"
 ovn_db_minAvailable=$(((${ovn_db_replicas} + 1) / 2))
 echo "ovn_db_minAvailable: ${ovn_db_minAvailable}"
@@ -400,6 +403,9 @@ ovn_image=${image} \
   ovn_nb_port=${ovn_nb_port} \
   ovn_sb_port=${ovn_sb_port} \
   ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
+  ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
+  ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
+  ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
   j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
 
 ovn_image=${image} \
