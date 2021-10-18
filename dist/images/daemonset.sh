@@ -428,6 +428,9 @@ ovn_image=${image} \
   ovn_sb_raft_port=${ovn_sb_raft_port} \
   ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
   ovsdb_etcd_initial_cluster=${ovsdb_etcd_initial_cluster} \
+  ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
+  ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
+  ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
   j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
 
 ovn_image=${image} \
