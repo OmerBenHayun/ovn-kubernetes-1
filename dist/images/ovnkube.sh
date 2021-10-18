@@ -212,19 +212,29 @@ ovnkube_node_mode=${OVNKUBE_NODE_MODE:-"full"}
 ovn_encap_ip=${OVN_ENCAP_IP:-}
 
 # OVSDB-etcd variables
-ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:2479"}
+ovsdb_etcd_server_name="etcd${MY_POD_IP}"
+ovsdb_etcd_peer_port=${OVSDB_ETCD_PEER_PORT:"2480"}
+ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:"2479"}
+ovsdb_etcd_listen_peer_urls="http://${MY_POD_IP}:${ETCD_PEER_PORT}"
+ovsdb_etcd_listen_client_urls="http://${MY_POD_IP}:${ETCD_CLIENT_PORT},http://localhost:${ETCD_CLIENT_PORT}"
+ovsdb_etcd_advertise_client_urls="http://${MY_POD_IP}:${ETCD_CLIENT_PORT}"
 ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"157286400"}                   # etcd default is 128
 ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}       # 150 MByte
 ovsdb_etcd_warning_apply_duration=${OVSDB_ETCD_WARNING_APPLY_DURATION:-"1s"}    # etcd default is 100ms
 ovsdb_etcd_election_timeout=${OVSDB_ETCD_ELECTION_TIMEOUT:-"1000"}              # etcd default
 ovsdb_etcd_quota_backend_bytes=${OVSDB_ETCD_QUOTA_BACKEND_BYTES:-"8589934592"}  # 8 GByte
+ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER:""}
+ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:""}
+ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_token:""}
+
+ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:$OVSDB_ETCD_CLIENT_PORT"}
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
 ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
 ovsdb_etcd_nb_unix_socket=${OVSDB_ETCD_NB_UNIX_SOCKET:-"/var/run/ovn/ovnnb_db.sock"}
 ovsdb_etcd_sb_unix_socket=${OVSDB_ETCD_SB_UNIX_SOCKET:-"/var/run/ovn/ovnsb_db.sock"}
-ovndb_etcd_tcpdump=${OVNDB_ETCD_TCPDUMP:-"false"}
+ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP:-"false"}
 
 # Determine the ovn rundir.
 if [[ -f /usr/bin/ovn-appctl ]]; then
@@ -1217,19 +1227,40 @@ ovs-metrics() {
 }
 
 etcd () {
-  if [[ ${ovndb_etcd_tcpdump} == "true" ]]; then
-	echo "================= start logging with tcpdump ============================ "
-	tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
+  if [[ ${ovsdb_etcd_tcpdump} == "true" ]]; then
+	  echo "================= start logging with tcpdump ============================ "
+	  tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
-  /usr/local/bin/etcd --data-dir /etc/openvswitch/ --listen-peer-urls http://localhost:2480 \
-  --listen-client-urls http://localhost:2479 --advertise-client-urls http://localhost:2479 \
-  --max-txn-ops ${ovsdb_etcd_max_txn_ops} --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
+  ovsdb_etcd_cluster_flags = ""
+
+  if [[ ! -z ${ovsdb_etcd_initial_cluster} ]]; then
+    ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster ${ovsdb_etcd_initial_cluster}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_cluster_token} ]]; then
+      ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster-token ${ovsdb_etcd_initial_cluster_token}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_cluster_state} ]]; then
+      ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster-state ${ovsdb_etcd_initial_cluster_state}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_advertise_peer_urls} ]]; then
+        ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-advertise-peer-urls  ${ovsdb_etcd_initial_advertise_peer_urls}"
+  fi
+
+
+  /usr/local/bin/etcd --name ${ovsdb_etcd_server_name} \
+  --data-dir /etc/openvswitch/ \
+  --listen-peer-urls ${ovsdb_etcd_listen_peer_urls} \
+  --listen-client-urls ${ovsdb_etcd_listen_client_urls} \
+  --advertise-client-urls ${ovsdb_etcd_advertise_client_urls} \
+  --max-txn-ops ${ovsdb_etcd_max_txn_ops} \
+  --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
   --experimental-txn-mode-write-with-shared-buffer=true \
   --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
   --election-timeout=${ovsdb_etcd_election_timeout} \
   --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes} \
-  --grpc-keepalive-timeout=60s --auto-compaction-retention=5m \
+  --grpc-keepalive-timeout=60s \
+  --auto-compaction-retention=5m $ovsdb_etcd_cluster_flags \
   --log-level=error
 }
 

@@ -31,7 +31,10 @@ OVN_LOGLEVEL_NB=""
 OVN_LOGLEVEL_SB=""
 OVN_LOGLEVEL_CONTROLLER=""
 OVN_LOGLEVEL_NBCTLD=""
-OVNDB_ETCD_TCPDUMP=""
+OVSDB_ETCD_TCPDUMP=""
+OVSDB_ETCD_INITIAL_CLUSTER=""
+OVSDB_ETCD_PEER_PORT=""
+OVSDB_ETCD_CLIENT_PORT=""
 OVNKUBE_LOGFILE_MAXSIZE=""
 OVNKUBE_LOGFILE_MAXBACKUPS=""
 OVNKUBE_LOGFILE_MAXAGE=""
@@ -64,6 +67,18 @@ while [ "$1" != "" ]; do
     ;;
   --ovsdb-etcd-image)
     OVN_OVSDB_ETCD_IMAGE=$VALUE
+    ;;
+  --ovsdb-etcd-tcpdump)
+    OVSDB_ETCD_TCPDUMP=$VALUE
+    ;;
+  --ovsdb-etcd-initial-cluster)
+    OVSDB_ETCD_INITIAL_CLUSTER=$VALUE
+    ;;
+  --ovsdb-etcd-peer-port)
+    OVSDB_ETCD_PEER_PORT=$VALUE
+    ;;
+  --ovsdb-etcd-client-port)
+    OVSDB_ETCD_CLIENT_PORT=$VALUE
     ;;
   --image-pull-policy)
     OVN_IMAGE_PULL_POLICY=$VALUE
@@ -115,9 +130,6 @@ while [ "$1" != "" ]; do
     ;;
   --ovn-loglevel-nbctld)
     OVN_LOGLEVEL_NBCTLD=$VALUE
-    ;;
-  --ovndb-etcd-tcpdump)
-    OVNDB_ETCD_TCPDUMP=$VALUE
     ;;
   --ovnkube-logfile-maxsize)
     OVNKUBE_LOGFILE_MAXSIZE=$VALUE
@@ -211,6 +223,12 @@ echo "etcd_image: ${etcd_image}"
 ovsdb_etcd_image=${OVN_OVSDB_ETCD_IMAGE:-"docker.io/aidans/ovsdb-etcd:latest"}
 echo "ovsdb_etcd_image: ${ovsdb_etcd_image}"
 
+ovsdb_etcd_peer_port=${OVSDB_ETCD_PEER_PORT:-"2480"}
+echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_peer_port}"
+
+ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:-"2479"}
+echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_client_port}"
+
 image_pull_policy=${OVN_IMAGE_PULL_POLICY:-"IfNotPresent"}
 echo "imagePullPolicy: ${image_pull_policy}"
 
@@ -244,8 +262,10 @@ ovnkube_logfile_maxsize=${OVNKUBE_LOGFILE_MAXSIZE:-"100"}
 echo "ovnkube_logfile_maxsize: ${ovnkube_logfile_maxsize}"
 ovnkube_logfile_maxbackups=${OVNKUBE_LOGFILE_MAXBACKUPS:-"5"}
 echo "ovnkube_logfile_maxbackups: ${ovnkube_logfile_maxbackups}"
-ovndb_etcd_tcpdump=${OVNDB_ETCD_TCPDUMP}
+ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP}
 echo "ovndb_etcd_tcpdump: ${ovndb_etcd_tcpdump}"
+ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER}
+echo "ovsdb_etcd_initial_cluster :${OVSDB_ETCD_INITIAL_CLUSTER}"
 ovnkube_logfile_maxage=${OVNKUBE_LOGFILE_MAXAGE:-"5"}
 echo "ovnkube_logfile_maxage: ${ovnkube_logfile_maxage}"
 ovn_acl_logging_rate_limit=${OVN_ACL_LOGGING_RATE_LIMIT:-"20"}
@@ -379,10 +399,12 @@ ovn_image=${image} \
   ovn_ssl_en=${ovn_ssl_en} \
   ovn_nb_port=${ovn_nb_port} \
   ovn_sb_port=${ovn_sb_port} \
-  ovndb_etcd_tcpdump=${ovndb_etcd_tcpdump} \
+  ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
   j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
 
 ovn_image=${image} \
+  ovn_etcd_image=${etcd_image} \
+  ovn_ovsdb_etcd_image=${ovsdb_etcd_image} \
   ovn_image_pull_policy=${image_pull_policy} \
   ovn_db_replicas=${ovn_db_replicas} \
   ovn_db_minAvailable=${ovn_db_minAvailable} \
@@ -398,6 +420,8 @@ ovn_image=${image} \
   ovn_sb_port=${ovn_sb_port} \
   ovn_nb_raft_port=${ovn_nb_raft_port} \
   ovn_sb_raft_port=${ovn_sb_raft_port} \
+  ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
+  ovsdb_etcd_initial_cluster=${ovsdb_etcd_initial_cluster} \
   j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
 
 ovn_image=${image} \

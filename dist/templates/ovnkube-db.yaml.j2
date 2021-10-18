@@ -229,12 +229,16 @@ spec:
         env:
         - name: OVN_DAEMONSET_VERSION
           value: "3"
+        - name: OVSDB_ETCD_PEER_PORT
+          value: "{{ ovsdb_etcd_peer_port }}"
+        - name: OVSDB_ETCD_CLIENT_PORT
+          value: "{{ ovsdb_etcd_client_port }}"
         - name: OVSDB_ETCD_MAX_TXN_OPS
-          value: "5120"
+          value: "{{ ovsdb_etcd_max_txn_ops }}"
         - name: OVSDB_ETCD_MAX_REQUEST_BYTES
-          value: "157286400"
-        - name: OVNDB_ETCD_TCPDUMP
-          value: "{{  ovndb_etcd_tcpdump  }}"
+          value: "{{ ovsdb_etcd_max_txn_ops }}"
+        - name: OVSDB_ETCD_TCPDUMP
+          value: "{{ ovsdb_etcd_tcpdump }}"
 
       # end of container
 

@@ -94,6 +94,62 @@ spec:
             topologyKey: kubernetes.io/hostname
 
       containers:
+      # etcd
+      - name: etcd
+        image: "{{ ovn_etcd_image | default('docker.io/aidans/etcd:latest') }}"
+        imagePullPolicy: "{{ ovn_image_pull_policy | default('IfNotPresent') }}"
+        command: ["/root/ovnkube.sh", "etcd"]
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        # ovn db is stored in the pod in /etc/openvswitch
+        # (or in /etc/ovn if OVN from new repository is used)
+        # and on the host in /var/lib/openvswitch/
+        - mountPath: /etc/openvswitch/
+          name: host-var-lib-ovs
+        - mountPath: /etc/ovn/
+          name: host-var-lib-ovs
+        - mountPath: /var/log/openvswitch/
+          name: host-var-log-ovs
+        - mountPath: /var/log/ovn/
+          name: host-var-log-ovs
+        - mountPath: /ovn-cert
+          name: host-ovn-cert
+          readOnly: true
+        - mountPath: /var/run/ovn/
+          name: host-var-run-ovs
+        - mountPath: /var/run/openvswitch/
+          name: host-var-run-ovs
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 300Mi
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: OVN_DAEMONSET_VERSION
+          value: "3"
+        - name: OVSDB_ETCD_PEER_PORT
+          value: "{{ ovsdb_etcd_peer_port }}"
+        - name: OVSDB_ETCD_CLIENT_PORT
+          value: "{{ ovsdb_etcd_client_port }}"
+        - name: OVSDB_ETCD_MAX_TXN_OPS
+          value: "{{ ovsdb_etcd_max_txn_ops }}"
+        - name: OVSDB_ETCD_MAX_REQUEST_BYTES
+          value: "{{ ovsdb_etcd_max_txn_ops }}"
+        - name: OVSDB_ETCD_TCPDUMP
+          value: "{{ ovsdb_etcd_tcpdump }}"
+         # etcd cluster settings
+        - name: OVSDB_ETCD_INITIAL_CLUSTER
+          value: "{{ ovsdb_etcd_initial_cluster }}"
+        - name: OVSDB_ETCD_INITIAL_CLUSTER_STATE
+          value: "new"
+        - name: OVSDB_ETCD_INITIAL_CLUSTER_TOKEN
+          value: "etcd-cluster-1"
+      # end of container
+
       # nb-ovsdb - v3
       - name: nb-ovsdb
         image: "{{ ovn_image | default('docker.io/ovnkube/ovn-daemonset:latest') }}"
