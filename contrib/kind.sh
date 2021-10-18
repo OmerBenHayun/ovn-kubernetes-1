@@ -331,7 +331,12 @@ detect_apiserver_url() {
 
 detect_ovsdb_etcd_initial_cluster() {
   # TODO implement
-  OVSDB_ETCD_INITIAL_CLUSTER="etcd172.18.0.2=http://172.18.0.2:2380,etcd172.18.0.3=http://172.18.0.3:2380,etcd172.18.0.4=http://172.18.0.4:2380"
+  OVSDB_ETCD_INITIAL_CLUSTER="etcd172.18.0.2=http://172.18.0.2:2480,etcd172.18.0.3=http://172.18.0.3:2480,etcd172.18.0.4=http://172.18.0.4:2480"
+}
+
+detect_ovsdb_etcd_members() {
+  # TODO implement
+  OVSDB_ETCD_MEMBERS="172.18.0.2:2480,172.18.0.3:2480,172.18.0.4:2480"
 }
 
 check_ipv6() {
@@ -512,6 +517,7 @@ create_ovn_kube_manifests() {
     --ovn-loglevel-nbctld="${OVN_LOG_LEVEL_NBCTLD}" \
     --ovsdb-etcd-tcpdump="${OVSDB_LOG_TO_TCPDUMP}" \
     --ovsdb-etcd-initial-cluster="${OVSDB_ETCD_INITIAL_CLUSTER}" \
+    --ovsdb-etcd-members="${OVSDB_ETCD_MEMBERS}" \
     --egress-ip-enable=true \
     --egress-firewall-enable=true \
     --v4-join-subnet="${JOIN_SUBNET_IPV4}" \
@@ -616,6 +622,7 @@ coredns_patch
 build_ovn_image
 detect_apiserver_url
 detect_ovsdb_etcd_initial_cluster
+detect_ovsdb_etcd_members
 create_ovn_kube_manifests
 install_ovn_image
 install_ovn
