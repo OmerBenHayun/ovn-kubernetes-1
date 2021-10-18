@@ -233,7 +233,7 @@ ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
 ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
 ovsdb_etcd_nb_unix_socket=${OVSDB_ETCD_NB_UNIX_SOCKET:-"/var/run/ovn/ovnnb_db.sock"}
-ovsdb_etcd_model=${OVSDB_ETCD_MODEL}
+ovsdb_etcd_model=${OVSDB_ETCD_MODEL:-}
 ovsdb_etcd_sb_unix_socket=${OVSDB_ETCD_SB_UNIX_SOCKET:-"/var/run/ovn/ovnsb_db.sock"}
 ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP:-"false"}
 
@@ -536,6 +536,7 @@ display_env() {
   echo OVN_ENCAP_IP ${ovn_encap_ip}
   echo ovnkube.sh version ${ovnkube_version}
   echo OVN_HOST_NETWORK_NAMESPACE ${ovn_host_network_namespace}
+  echo OVSDB_ETCD_MODEL ${ovsdb_etcd_model}
 }
 
 ovn_debug() {

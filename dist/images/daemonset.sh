@@ -203,6 +203,9 @@ while [ "$1" != "" ]; do
   --host-network-namespace)
     OVN_HOST_NETWORK_NAMESPACE=$VALUE
     ;;
+  --ovsdb_etcd_members)
+    OVSDB_ETCD_MEMBERS=$VALUE
+    ;;
   *)
     echo "WARNING: unknown parameter \"$PARAM\""
     exit 1
@@ -303,6 +306,8 @@ ovn_sb_port=${OVN_SB_PORT:-6642}
 echo "ovn_sb_port: ${ovn_sb_port}"
 ovn_nb_raft_port=${OVN_NB_RAFT_PORT:-6643}
 echo "ovn_nb_raft_port: ${ovn_nb_raft_port}"
+ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS}
+echo "ovsdb_etcd_members: ${ovsdb_etcd_members}"
 ovn_sb_raft_port=${OVN_SB_RAFT_PORT:-6644}
 echo "ovn_sb_raft_port: ${ovn_sb_raft_port}"
 ovn_multicast_enable=${OVN_MULTICAST_ENABLE}
@@ -431,6 +436,7 @@ ovn_image=${image} \
   ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
   ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
   ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
+  ovsdb_etcd_members=${ovsdb_etcd_members} \
   j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
 
 ovn_image=${image} \
