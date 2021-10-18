@@ -241,7 +241,7 @@ echo "ovn_gateway_mode: ${ovn_gateway_mode}"
 ovn_gateway_opts=${OVN_GATEWAY_OPTS}
 echo "ovn_gateway_opts: ${ovn_gateway_opts}"
 
-vn_db_replicas=${OVN_DB_REPLICAS:-3}
+ovn_db_replicas=${OVN_DB_REPLICAS:-3}
 echo "ovn_db_replicas: ${ovn_db_replicas}"
 ovn_db_minAvailable=$(((${ovn_db_replicas} + 1) / 2))
 echo "ovn_db_minAvailable: ${ovn_db_minAvailable}"
