@@ -131,10 +131,10 @@ spec:
               fieldPath: status.podIP
         - name: OVN_DAEMONSET_VERSION
           value: "3"
-        - name: OVSDB_ETCD_PEER_PORT
-          value: "{{ ovsdb_etcd_peer_port }}"
         - name: OVSDB_ETCD_CLIENT_PORT
           value: "{{ ovsdb_etcd_client_port }}"
+        - name: OVSDB_ETCD_PEER_PORT
+          value: "{{ ovsdb_etcd_peer_port }}"
         - name: OVSDB_ETCD_MAX_TXN_OPS
           value: "{{ ovsdb_etcd_max_txn_ops }}"
         - name: OVSDB_ETCD_MAX_REQUEST_BYTES
@@ -190,6 +190,8 @@ spec:
         env:
         - name: OVN_DAEMONSET_VERSION
           value: "3"
+        - name: OVSDB_ETCD_CLIENT_PORT
+          value: "{{ ovsdb_etcd_client_port }}"
         - name: OVSDB_ETCD_NB_LOG_LEVEL
           value: "6"
         - name: K8S_APISERVER
@@ -261,6 +263,8 @@ spec:
         env:
         - name: OVN_DAEMONSET_VERSION
           value: "3"
+        - name: OVSDB_ETCD_CLIENT_PORT
+          value: "{{ ovsdb_etcd_client_port }}"
         - name: OVSDB_ETCD_SB_LOG_LEVEL
           value: "6"
         - name: K8S_APISERVER
