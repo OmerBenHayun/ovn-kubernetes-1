@@ -228,7 +228,7 @@ ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:-}
 ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_TOKEN:-}
 ovsdb_etcd_initial_advertise_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
 
-ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:$OVSDB_ETCD_CLIENT_PORT"}
+ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:${OVSDB_ETCD_CLIENT_PORT}"}
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
