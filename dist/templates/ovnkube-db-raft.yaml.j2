@@ -219,8 +219,6 @@ spec:
           value: "5000"
         - name: OVSDB_ETCD_DEPLOYMENT_MODEL
           value: "clustered"
-        - name: OVSDB_ETCD_MEMBERS
-          value: "{{ ovsdb_etcd_members }}"
       # end of container
 
       # sb-ovsdb - v3
@@ -292,8 +290,6 @@ spec:
           value: "5000"
         - name: OVSDB_ETCD_DEPLOYMENT_MODEL
           value: "clustered"
-        - name: OVSDB_ETCD_MEMBERS
-          value: "{{ ovsdb_etcd_members }}"
       # end of container
 
       volumes:
