@@ -167,6 +167,9 @@ while [ "$1" != "" ]; do
   --ovn-sb-raft-port)
     OVN_SB_RAFT_PORT=$VALUE
     ;;
+  --ovsdb-etcd-members)
+    OVSDB_ETCD_MEMBERS=$VALUE
+    ;;
   --hybrid-enabled)
     OVN_HYBRID_OVERLAY_ENABLE=$VALUE
     ;;
@@ -228,6 +231,9 @@ echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_peer_port}"
 
 ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:-"2479"}
 echo "ovsdb_etcd_peer_port: ${ovsdb_etcd_client_port}"
+
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS}
+echo "ovsdb_etcd_max_txn_ops: ${ovsdb_etcd_max_txn_ops}"
 
 image_pull_policy=${OVN_IMAGE_PULL_POLICY:-"IfNotPresent"}
 echo "imagePullPolicy: ${image_pull_policy}"
@@ -302,6 +308,8 @@ ovn_nb_raft_port=${OVN_NB_RAFT_PORT:-6643}
 echo "ovn_nb_raft_port: ${ovn_nb_raft_port}"
 ovn_sb_raft_port=${OVN_SB_RAFT_PORT:-6644}
 echo "ovn_sb_raft_port: ${ovn_sb_raft_port}"
+ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS}
+echo "ovsdb_etcd_members: ${ovsdb_etcd_members}"
 ovn_multicast_enable=${OVN_MULTICAST_ENABLE}
 echo "ovn_multicast_enable: ${ovn_multicast_enable}"
 ovn_v4_join_subnet=${OVN_V4_JOIN_SUBNET}
@@ -400,6 +408,9 @@ ovn_image=${image} \
   ovn_nb_port=${ovn_nb_port} \
   ovn_sb_port=${ovn_sb_port} \
   ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
+  ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
+  ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
+  ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
   j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
 
 ovn_image=${image} \
@@ -420,8 +431,12 @@ ovn_image=${image} \
   ovn_sb_port=${ovn_sb_port} \
   ovn_nb_raft_port=${ovn_nb_raft_port} \
   ovn_sb_raft_port=${ovn_sb_raft_port} \
+  ovsdb_etcd_members=${ovsdb_etcd_members} \
   ovsdb_etcd_tcpdump=${ovsdb_etcd_tcpdump} \
   ovsdb_etcd_initial_cluster=${ovsdb_etcd_initial_cluster} \
+  ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
+  ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
+  ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
   j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
 
 ovn_image=${image} \

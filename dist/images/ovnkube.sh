@@ -213,21 +213,22 @@ ovn_encap_ip=${OVN_ENCAP_IP:-}
 
 # OVSDB-etcd variables
 ovsdb_etcd_server_name="etcd${MY_POD_IP}"
-ovsdb_etcd_peer_port=${OVSDB_ETCD_PEER_PORT:"2480"}
-ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:"2479"}
-ovsdb_etcd_listen_peer_urls="http://${MY_POD_IP}:${ETCD_PEER_PORT}"
-ovsdb_etcd_listen_client_urls="http://${MY_POD_IP}:${ETCD_CLIENT_PORT},http://localhost:${ETCD_CLIENT_PORT}"
-ovsdb_etcd_advertise_client_urls="http://${MY_POD_IP}:${ETCD_CLIENT_PORT}"
-ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"157286400"}                   # etcd default is 128
+ovsdb_etcd_peer_port=${OVSDB_ETCD_PEER_PORT:-"2480"}
+ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:-"2479"}
+ovsdb_etcd_listen_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
+ovsdb_etcd_listen_client_urls="http://${MY_POD_IP}:${OVSDB_ETCD_CLIENT_PORT},http://localhost:${OVSDB_ETCD_CLIENT_PORT}"
+ovsdb_etcd_advertise_client_urls="http://${MY_POD_IP}:${OVSDB_ETCD_CLIENT_PORT}"
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"102400"}                   # etcd default is 128
 ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}       # 150 MByte
 ovsdb_etcd_warning_apply_duration=${OVSDB_ETCD_WARNING_APPLY_DURATION:-"1s"}    # etcd default is 100ms
 ovsdb_etcd_election_timeout=${OVSDB_ETCD_ELECTION_TIMEOUT:-"1000"}              # etcd default
 ovsdb_etcd_quota_backend_bytes=${OVSDB_ETCD_QUOTA_BACKEND_BYTES:-"8589934592"}  # 8 GByte
-ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER:""}
-ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:""}
-ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_token:""}
+ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER:-}
+ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:-}
+ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_TOKEN:-}
+ovsdb_etcd_initial_advertise_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
 
-ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:$OVSDB_ETCD_CLIENT_PORT"}
+ovsdb_etcd_members="localhost:${OVSDB_ETCD_CLIENT_PORT}"
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
@@ -235,6 +236,8 @@ ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
 ovsdb_etcd_nb_unix_socket=${OVSDB_ETCD_NB_UNIX_SOCKET:-"/var/run/ovn/ovnnb_db.sock"}
 ovsdb_etcd_sb_unix_socket=${OVSDB_ETCD_SB_UNIX_SOCKET:-"/var/run/ovn/ovnsb_db.sock"}
 ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP:-"false"}
+
+ovsdb_etcd_deployment_model=${OVSDB_ETCD_DEPLOYMENT_MODEL:-}
 
 # Determine the ovn rundir.
 if [[ -f /usr/bin/ovn-appctl ]]; then
@@ -1232,7 +1235,7 @@ etcd () {
 	  tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
-  ovsdb_etcd_cluster_flags = ""
+  ovsdb_etcd_cluster_flags=""
 
   if [[ ! -z ${ovsdb_etcd_initial_cluster} ]]; then
     ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster ${ovsdb_etcd_initial_cluster}"
@@ -1247,7 +1250,6 @@ etcd () {
         ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-advertise-peer-urls  ${ovsdb_etcd_initial_advertise_peer_urls}"
   fi
 
-
   /usr/local/bin/etcd --name ${ovsdb_etcd_server_name} \
   --data-dir /etc/openvswitch/ \
   --listen-peer-urls ${ovsdb_etcd_listen_peer_urls} \
@@ -1259,8 +1261,8 @@ etcd () {
   --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
   --election-timeout=${ovsdb_etcd_election_timeout} \
   --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes} \
-  --grpc-keepalive-timeout=60s \
-  --auto-compaction-retention=5m $ovsdb_etcd_cluster_flags \
+  --auto-compaction-retention=5m \
+  --grpc-keepalive-timeout=60s ${ovsdb_etcd_cluster_flags} \
   --log-level=error
 }
 
@@ -1281,7 +1283,7 @@ nb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/nb-ovsdb-etcd.log -v=${ovsdb_etcd_nb_log_level} -tcp-address=:${ovn_nb_port} \
   -unix-address=${ovsdb_etcd_nb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=nb -schema-file=ovn-nb.ovsschema -pid-file=${pid_file} \
-  -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s -model=${ovsdb_etcd_deployment_model} &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
@@ -1302,7 +1304,7 @@ sb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/sb-ovsdb-etcd.log -v=${ovsdb_etcd_sb_log_level} -tcp-address=:${ovn_sb_port} \
   -unix-address=${ovsdb_etcd_sb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=sb -schema-file=ovn-sb.ovsschema -pid-file=${pid_file} \
-  -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s -model=${ovsdb_etcd_deployment_model} &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
