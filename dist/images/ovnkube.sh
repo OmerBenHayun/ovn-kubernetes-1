@@ -212,19 +212,30 @@ ovnkube_node_mode=${OVNKUBE_NODE_MODE:-"full"}
 ovn_encap_ip=${OVN_ENCAP_IP:-}
 
 # OVSDB-etcd variables
-ovsdb_etcd_members=${OVSDB_ETCD_MEMBERS:-"localhost:2479"}
-ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"157286400"}                   # etcd default is 128
+ovsdb_etcd_server_name="etcd${MY_POD_IP}"
+ovsdb_etcd_peer_port=${OVSDB_ETCD_PEER_PORT:-"2480"}
+ovsdb_etcd_client_port=${OVSDB_ETCD_CLIENT_PORT:-"2479"}
+ovsdb_etcd_listen_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
+ovsdb_etcd_listen_client_urls="http://${MY_POD_IP}:${OVSDB_ETCD_CLIENT_PORT},http://localhost:${OVSDB_ETCD_CLIENT_PORT}"
+ovsdb_etcd_advertise_client_urls="http://${MY_POD_IP}:${OVSDB_ETCD_CLIENT_PORT}"
+ovsdb_etcd_max_txn_ops=${OVSDB_ETCD_MAX_TXN_OPS:-"102400"}                   # etcd default is 128
 ovsdb_etcd_max_request_bytes=${OVSDB_ETCD_MAX_REQUEST_BYTES:-"157286400"}       # 150 MByte
 ovsdb_etcd_warning_apply_duration=${OVSDB_ETCD_WARNING_APPLY_DURATION:-"1s"}    # etcd default is 100ms
 ovsdb_etcd_election_timeout=${OVSDB_ETCD_ELECTION_TIMEOUT:-"1000"}              # etcd default
 ovsdb_etcd_quota_backend_bytes=${OVSDB_ETCD_QUOTA_BACKEND_BYTES:-"8589934592"}  # 8 GByte
+ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER:-}
+ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:-}
+ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_TOKEN:-}
+ovsdb_etcd_initial_advertise_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
+ovsdb_etcd_members="localhost:${OVSDB_ETCD_CLIENT_PORT}"
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
 ovsdb_etcd_nb_log_level=${OVSDB_ETCD_NB_LOG_LEVEL:-"5"}
 ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
 ovsdb_etcd_nb_unix_socket=${OVSDB_ETCD_NB_UNIX_SOCKET:-"/var/run/ovn/ovnnb_db.sock"}
 ovsdb_etcd_sb_unix_socket=${OVSDB_ETCD_SB_UNIX_SOCKET:-"/var/run/ovn/ovnsb_db.sock"}
-ovndb_etcd_tcpdump=${OVNDB_ETCD_TCPDUMP:-"false"}
+ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP:-"false"}
+ovsdb_etcd_deployment_model=${OVSDB_ETCD_DEPLOYMENT_MODEL:-}
 
 # Determine the ovn rundir.
 if [[ -f /usr/bin/ovn-appctl ]]; then
@@ -649,8 +660,54 @@ cleanup-ovs-server() {
   /usr/share/openvswitch/scripts/ovs-ctl stop
 }
 
+set_ovsdb_db_ep() {
+  replicas=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+      get statefulset -n ${ovn_kubernetes_namespace} ovnkube-db -o=jsonpath='{.spec.replicas}')
+  if [[ ${replicas} -lt 3 || $((${replicas} % 2)) -eq 0 ]]; then
+      echo "at least 3 nodes need to be configured, and it must be odd number of nodes"
+      exit 1
+  fi
+  # return if ovn db service endpoint already exists
+  result=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+        get ep -n ${ovn_kubernetes_namespace} ovnkube-db 2>&1)
+  test $? -eq 0 && return
+  if ! echo ${result} | grep -q "NotFound"; then
+      echo "Failed to find ovnkube-db endpoint: ${result}, Exiting..."
+      exit 12
+  fi
+  # Get IPs of all ovnkube-db PODs
+  ips=()
+  for ((i = 0; i < ${replicas}; i++)); do
+    ip=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+          get pod -n ${ovn_kubernetes_namespace} ovnkube-db-${i} -o=jsonpath='{.status.podIP}')
+  if [[ ${ip} == "" ]]; then
+      break
+  fi
+      ips+=(${ip})
+  done
+
+  echo "ips = ${ips}"
+  if [[ ${i} -eq ${replicas} ]]; then
+        # Number of POD IPs is same as number of statefulset replicas. Now, if the number of ovnkube-db endpoints
+        # is 0, then we are applying the endpoint for the first time. So, we need to make sure that each of the
+        # pod IP responds to the `ovsdb-client list-dbs` call before we set the endpoint. If they don't, retry several
+        # times and then give up.
+
+  for ip in ${ips[@]}; do
+    wait_for_event attempts=10 check_ovnkube_db_ep ${ip} ${ovn_nb_port}
+    done
+    set_ovnkube_db_ep ${ips[@]}
+  else
+  # ideally shouldn't happen
+        echo "Not all the pods in the statefulset are up. Expecting ${replicas} pods, but found ${i} pods."
+        echo "Exiting...."
+        exit 10
+      fi
+}
+
 # set the ovnkube_db endpoint for other pods to query the OVN DB IP
 set_ovnkube_db_ep() {
+  echo "set_ovnkube_db_ep $@"
   ips=("$@")
 
   echo "=============== setting ovnkube-db endpoints to ${ips[@]}"
@@ -1217,19 +1274,39 @@ ovs-metrics() {
 }
 
 etcd () {
-  if [[ ${ovndb_etcd_tcpdump} == "true" ]]; then
-	echo "================= start logging with tcpdump ============================ "
-	tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
+  if [[ ${ovsdb_etcd_tcpdump} == "true" ]]; then
+	  echo "================= start logging with tcpdump ============================ "
+	  tcpdump -nnv -i any  port "(${ovn_nb_port} or ${ovn_sb_port})" -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
-  /usr/local/bin/etcd --data-dir /etc/openvswitch/ --listen-peer-urls http://localhost:2480 \
-  --listen-client-urls http://localhost:2479 --advertise-client-urls http://localhost:2479 \
-  --max-txn-ops ${ovsdb_etcd_max_txn_ops} --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
+  ovsdb_etcd_cluster_flags=""
+
+  if [[ ! -z ${ovsdb_etcd_initial_cluster} ]]; then
+    ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster ${ovsdb_etcd_initial_cluster}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_cluster_token} ]]; then
+      ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster-token ${ovsdb_etcd_initial_cluster_token}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_cluster_state} ]]; then
+      ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-cluster-state ${ovsdb_etcd_initial_cluster_state}"
+  fi
+  if [[ ! -z ${ovsdb_etcd_initial_advertise_peer_urls} ]]; then
+        ovsdb_etcd_cluster_flags="${ovsdb_etcd_cluster_flags} --initial-advertise-peer-urls  ${ovsdb_etcd_initial_advertise_peer_urls}"
+  fi
+
+  /usr/local/bin/etcd --name ${ovsdb_etcd_server_name} \
+  --data-dir /etc/openvswitch/ \
+  --listen-peer-urls ${ovsdb_etcd_listen_peer_urls} \
+  --listen-client-urls ${ovsdb_etcd_listen_client_urls} \
+  --advertise-client-urls ${ovsdb_etcd_advertise_client_urls} \
+  --max-txn-ops ${ovsdb_etcd_max_txn_ops} \
+  --max-request-bytes ${ovsdb_etcd_max_request_bytes} \
   --experimental-txn-mode-write-with-shared-buffer=true \
   --experimental-warning-apply-duration=${ovsdb_etcd_warning_apply_duration} \
   --election-timeout=${ovsdb_etcd_election_timeout} \
   --quota-backend-bytes=${ovsdb_etcd_quota_backend_bytes} \
-  --grpc-keepalive-timeout=60s --auto-compaction-retention=5m \
+  --auto-compaction-retention=5m \
+  --grpc-keepalive-timeout=60s ${ovsdb_etcd_cluster_flags} \
   --log-level=error
 }
 
@@ -1237,7 +1314,7 @@ etcd_ready() {
   curl -s http://127.0.0.1:2479 > /dev/null
 }
 
-nb-ovsdb-etcd () {
+nb-ovsdb-etcd() {
   check_ovn_daemonset_version "3"
   pid_file=${OVN_RUNDIR}/ovnnb_etcd.pid
   nb_cpuprofile_file=${OVN_RUNDIR}/nb_cpuprofile.prof
@@ -1250,7 +1327,7 @@ nb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/nb-ovsdb-etcd.log -v=${ovsdb_etcd_nb_log_level} -tcp-address=:${ovn_nb_port} \
   -unix-address=${ovsdb_etcd_nb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=nb -schema-file=ovn-nb.ovsschema -pid-file=${pid_file} \
-  -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${nb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s -model=${ovsdb_etcd_deployment_model} &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
@@ -1271,14 +1348,17 @@ sb-ovsdb-etcd () {
   /root/server -logtostderr=false -log_file=${OVN_LOGDIR}/sb-ovsdb-etcd.log -v=${ovsdb_etcd_sb_log_level} -tcp-address=:${ovn_sb_port} \
   -unix-address=${ovsdb_etcd_sb_unix_socket} -etcd-members=${ovsdb_etcd_members} -schema-basedir=${ovsdb_etcd_schemas_dir} \
   -database-prefix=${ovsdb_etcd_prefix} -service-name=sb -schema-file=ovn-sb.ovsschema -pid-file=${pid_file} \
-  -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s &
+  -cpu-profile=${sb_cpuprofile_file} -keepalive-time=6s -keepalive-timeout=20s -model=${ovsdb_etcd_deployment_model} &
 
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
   # create the ovnkube-db endpoints
-  wait_for_event attempts=10 check_ovnkube_db_ep ${ovn_db_host} ${ovn_nb_port}
-  set_ovnkube_db_ep ${ovn_db_host}
-
+  if [[ ${ovsdb_etcd_deployment_model} == "standalone" ]]; then
+    wait_for_event attempts=10 check_ovnkube_db_ep ${ovn_db_host} ${ovn_nb_port}
+    set_ovnkube_db_ep ${ovn_db_host}
+  else
+    set_ovsdb_db_ep
+  fi
   process_healthy ovnsb_etcd ${ovn_tail_pid}
   echo "=============== run sb-ovsdb-etcd ========== terminated"
 }
