@@ -234,6 +234,10 @@ spec:
             cpu: 100m
             memory: 300Mi
         env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: OVN_DAEMONSET_VERSION
           value: "3"
         - name: OVSDB_ETCD_CLIENT_PORT

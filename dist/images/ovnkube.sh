@@ -227,7 +227,6 @@ ovsdb_etcd_initial_cluster=${OVSDB_ETCD_INITIAL_CLUSTER:-}
 ovsdb_etcd_initial_cluster_state=${OVSDB_ETCD_INITIAL_CLUSTER_STATE:-}
 ovsdb_etcd_initial_cluster_token=${OVSDB_ETCD_INITIAL_CLUSTER_TOKEN:-}
 ovsdb_etcd_initial_advertise_peer_urls="http://${MY_POD_IP}:${OVSDB_ETCD_PEER_PORT}"
-
 ovsdb_etcd_members="localhost:${OVSDB_ETCD_CLIENT_PORT}"
 ovsdb_etcd_schemas_dir=${OVSDB_ETCD_SCHEMAS_DIR:-/root/ovsdb-etcd/schemas}
 ovsdb_etcd_prefix=${OVSDB_ETCD_PREFIX:-"ovsdb"}
@@ -236,7 +235,6 @@ ovsdb_etcd_sb_log_level=${OVSDB_ETCD_SB_LOG_LEVEL:-"5"}
 ovsdb_etcd_nb_unix_socket=${OVSDB_ETCD_NB_UNIX_SOCKET:-"/var/run/ovn/ovnnb_db.sock"}
 ovsdb_etcd_sb_unix_socket=${OVSDB_ETCD_SB_UNIX_SOCKET:-"/var/run/ovn/ovnsb_db.sock"}
 ovsdb_etcd_tcpdump=${OVSDB_ETCD_TCPDUMP:-"false"}
-
 ovsdb_etcd_deployment_model=${OVSDB_ETCD_DEPLOYMENT_MODEL:-}
 
 # Determine the ovn rundir.
@@ -662,8 +660,54 @@ cleanup-ovs-server() {
   /usr/share/openvswitch/scripts/ovs-ctl stop
 }
 
+set_ovsdb_db_ep() {
+  replicas=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+      get statefulset -n ${ovn_kubernetes_namespace} ovnkube-db -o=jsonpath='{.spec.replicas}')
+  if [[ ${replicas} -lt 3 || $((${replicas} % 2)) -eq 0 ]]; then
+      echo "at least 3 nodes need to be configured, and it must be odd number of nodes"
+      exit 1
+  fi
+  # return if ovn db service endpoint already exists
+  result=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+        get ep -n ${ovn_kubernetes_namespace} ovnkube-db 2>&1)
+  test $? -eq 0 && return
+  if ! echo ${result} | grep -q "NotFound"; then
+      echo "Failed to find ovnkube-db endpoint: ${result}, Exiting..."
+      exit 12
+  fi
+  # Get IPs of all ovnkube-db PODs
+  ips=()
+  for ((i = 0; i < ${replicas}; i++)); do
+    ip=$(kubectl --server=${K8S_APISERVER} --token=${k8s_token} --certificate-authority=${K8S_CACERT} \
+          get pod -n ${ovn_kubernetes_namespace} ovnkube-db-${i} -o=jsonpath='{.status.podIP}')
+  if [[ ${ip} == "" ]]; then
+      break
+  fi
+      ips+=(${ip})
+  done
+
+  echo "ips = ${ips}"
+  if [[ ${i} -eq ${replicas} ]]; then
+        # Number of POD IPs is same as number of statefulset replicas. Now, if the number of ovnkube-db endpoints
+        # is 0, then we are applying the endpoint for the first time. So, we need to make sure that each of the
+        # pod IP responds to the `ovsdb-client list-dbs` call before we set the endpoint. If they don't, retry several
+        # times and then give up.
+
+  for ip in ${ips[@]}; do
+    wait_for_event attempts=10 check_ovnkube_db_ep ${ip} ${ovn_nb_port}
+    done
+    set_ovnkube_db_ep ${ips[@]}
+  else
+  # ideally shouldn't happen
+        echo "Not all the pods in the statefulset are up. Expecting ${replicas} pods, but found ${i} pods."
+        echo "Exiting...."
+        exit 10
+      fi
+}
+
 # set the ovnkube_db endpoint for other pods to query the OVN DB IP
 set_ovnkube_db_ep() {
+  echo "set_ovnkube_db_ep $@"
   ips=("$@")
 
   echo "=============== setting ovnkube-db endpoints to ${ips[@]}"
@@ -1232,7 +1276,7 @@ ovs-metrics() {
 etcd () {
   if [[ ${ovsdb_etcd_tcpdump} == "true" ]]; then
 	  echo "================= start logging with tcpdump ============================ "
-	  tcpdump -nnv -i any  port '(6641 or 6642)' -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
+	  tcpdump -nnv -i any  port "(${ovn_nb_port} or ${ovn_sb_port})" -s 65535  -w /var/log/openvswitch/tcpdump.pcap -C 1000 -Z root > /var/log/openvswitch/tcpdump_logs.log 2>&1 &
   fi
   echo "================= start etcd server ============================ "
   ovsdb_etcd_cluster_flags=""
@@ -1270,7 +1314,7 @@ etcd_ready() {
   curl -s http://127.0.0.1:2479 > /dev/null
 }
 
-nb-ovsdb-etcd () {
+nb-ovsdb-etcd() {
   check_ovn_daemonset_version "3"
   pid_file=${OVN_RUNDIR}/ovnnb_etcd.pid
   nb_cpuprofile_file=${OVN_RUNDIR}/nb_cpuprofile.prof
@@ -1309,9 +1353,12 @@ sb-ovsdb-etcd () {
   sleep 5
   ovn_tail_pid=$(<"${pid_file}")
   # create the ovnkube-db endpoints
-  wait_for_event attempts=10 check_ovnkube_db_ep ${ovn_db_host} ${ovn_nb_port}
-  set_ovnkube_db_ep ${ovn_db_host}
-
+  if [[ ${ovsdb_etcd_deployment_model} == "standalone" ]]; then
+    wait_for_event attempts=10 check_ovnkube_db_ep ${ovn_db_host} ${ovn_nb_port}
+    set_ovnkube_db_ep ${ovn_db_host}
+  else
+    set_ovsdb_db_ep
+  fi
   process_healthy ovnsb_etcd ${ovn_tail_pid}
   echo "=============== run sb-ovsdb-etcd ========== terminated"
 }

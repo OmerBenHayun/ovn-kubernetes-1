@@ -336,7 +336,7 @@ detect_ovsdb_etcd_initial_cluster() {
 
 detect_ovsdb_etcd_members() {
   # TODO implement
-  OVSDB_ETCD_MEMBERS="172.18.0.2:2480,172.18.0.3:2480,172.18.0.4:2480"
+  OVSDB_ETCD_MEMBERS="172.18.0.2:2479,172.18.0.3:2479,172.18.0.4:2479"
 }
 
 check_ipv6() {
