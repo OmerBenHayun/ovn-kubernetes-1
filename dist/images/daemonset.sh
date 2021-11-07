@@ -399,6 +399,33 @@ ovn_image=${image} \
   j2 ../templates/ovnkube-master.yaml.j2 -o ../yaml/ovnkube-master.yaml
 
 ovn_image=${image} \
+  ovn_image_pull_policy=${image_pull_policy} \
+  ovn_loglevel_nb=${ovn_loglevel_nb} \
+  ovn_loglevel_sb=${ovn_loglevel_sb} \
+  ovn_ssl_en=${ovn_ssl_en} \
+  ovn_nb_port=${ovn_nb_port} \
+  ovn_sb_port=${ovn_sb_port} \
+  j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
+
+ovn_image=${image} \
+  ovn_image_pull_policy=${image_pull_policy} \
+  ovn_db_replicas=${ovn_db_replicas} \
+  ovn_db_minAvailable=${ovn_db_minAvailable} \
+  ovn_loglevel_nb=${ovn_loglevel_nb} ovn_loglevel_sb=${ovn_loglevel_sb} \
+  ovn_dbchecker_loglevel=${db_checker_loglevel} \
+  ovnkube_logfile_maxsize=${ovnkube_logfile_maxsize} \
+  ovnkube_logfile_maxbackups=${ovnkube_logfile_maxbackups} \
+  ovnkube_logfile_maxage=${ovnkube_logfile_maxage} \
+  ovn_ssl_en=${ovn_ssl_en} \
+  ovn_nb_raft_election_timer=${ovn_nb_raft_election_timer} \
+  ovn_sb_raft_election_timer=${ovn_sb_raft_election_timer} \
+  ovn_nb_port=${ovn_nb_port} \
+  ovn_sb_port=${ovn_sb_port} \
+  ovn_nb_raft_port=${ovn_nb_raft_port} \
+  ovn_sb_raft_port=${ovn_sb_raft_port} \
+  j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
+
+ovn_image=${image} \
   ovn_etcd_image=${etcd_image} \
   ovn_ovsdb_etcd_image=${ovsdb_etcd_image} \
   ovn_image_pull_policy=${image_pull_policy} \
@@ -411,7 +438,7 @@ ovn_image=${image} \
   ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
   ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
   ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
-  j2 ../templates/ovnkube-db.yaml.j2 -o ../yaml/ovnkube-db.yaml
+  j2 ../templates/ovsdb-etcd-ovnkube-db.yaml.j2 -o ../yaml/ovsdb-etcd-ovnkube-db.yaml
 
 ovn_image=${image} \
   ovn_etcd_image=${etcd_image} \
@@ -437,7 +464,7 @@ ovn_image=${image} \
   ovsdb_etcd_peer_port=${ovsdb_etcd_peer_port} \
   ovsdb_etcd_client_port=${ovsdb_etcd_client_port} \
   ovsdb_etcd_max_txn_ops=${ovsdb_etcd_max_txn_ops} \
-  j2 ../templates/ovnkube-db-raft.yaml.j2 -o ../yaml/ovnkube-db-raft.yaml
+  j2 ../templates/ovsdb-etcd-ovnkube-db-raft.yaml.j2 -o ../yaml/ovsdb-etcd-ovnkube-db-raft.yaml
 
 ovn_image=${image} \
   ovn_image_pull_policy=${image_pull_policy} \
