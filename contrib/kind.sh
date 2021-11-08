@@ -98,6 +98,8 @@ parse_args() {
                                                 ;;
             -ha | --ha-enabled )                OVN_HA=true
                                                 ;;
+             --use-ovsdb-etcd )                 USE_OVSDB_ETCD=true
+                                                ;;
             -me | --multicast-enabled)          OVN_MULTICAST_ENABLE=true
                                                 ;;
             -ho | --hybrid-enabled )            OVN_HYBRID_OVERLAY_ENABLE=true
@@ -210,6 +212,7 @@ print_params() {
      echo ""
      echo "KIND_INSTALL_INGRESS = $KIND_INSTALL_INGRESS"
      echo "OVN_HA = $OVN_HA"
+     echo "USE_OVSDB_ETCD= $USE_OVSDB_ETCD"
      echo "KIND_CONFIG_FILE = $KIND_CONFIG"
      echo "KIND_REMOVE_TAINT = $KIND_REMOVE_TAINT"
      echo "KIND_IPV4_SUPPORT = $KIND_IPV4_SUPPORT"
@@ -254,6 +257,7 @@ set_default_params() {
   OVN_GATEWAY_MODE=${OVN_GATEWAY_MODE:-local}
   KIND_INSTALL_INGRESS=${KIND_INSTALL_INGRESS:-false}
   OVN_HA=${OVN_HA:-false}
+  USE_OVSDB_ETCD=${USE_OVSDB_ETCD:-false}
   KIND_CONFIG=${KIND_CONFIG:-./kind.yaml.j2}
   KIND_REMOVE_TAINT=${KIND_REMOVE_TAINT:-true}
   KIND_IPV4_SUPPORT=${KIND_IPV4_SUPPORT:-true}
@@ -551,10 +555,18 @@ install_ovn() {
       kubectl taint node "$n" node-role.kubernetes.io/master:NoSchedule- || true
     fi
   done
-  if [ "$OVN_HA" == true ]; then
-    run_kubectl apply -f ovnkube-db-raft.yaml
+  if [ "$USE_OVSDB_ETCD" == true ]; then
+		OVNKUBE_DB_FILE="ovsdb-etcd-ovnkube-db.yaml"
+		OVNKUBE_DB_RAFT_FILE="ovsdb-etcd-ovnkube-db-raft.yaml"
   else
-    run_kubectl apply -f ovnkube-db.yaml
+		OVNKUBE_DB_FILE="ovnkube-db.yaml"
+		OVNKUBE_DB_RAFT_FILE="ovnkube-db-raft.yaml"
+  fi
+
+  if [ "$OVN_HA" == true ]; then
+    run_kubectl apply -f "${OVNKUBE_DB_RAFT_FILE}"
+  else
+    run_kubectl apply -f "${OVNKUBE_DB_FILE}"
   fi
   run_kubectl apply -f ovs-node.yaml
   run_kubectl apply -f ovnkube-master.yaml
